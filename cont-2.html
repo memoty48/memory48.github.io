@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<title>文件碎片</title>
+	<link href="./cont.css" type="text/css" rel="stylesheet" />
+	<style>
+		canvas {
+			background-color: rgba(255, 255, 255, 0.5);
+			display: block;
+		}
+	</style>
+	<!-- <script>
+		window.onload = function () {
+			setInterval("togglesound( )", 100);
+		}
+
+		function togglesound() {
+			var music = document.getElementById("music"); //获取ID
+			if (music.paused) { //判读是否播放
+				music.paused = false;
+				music.play(); //没有就播放
+			}
+		}
+	</script> -->
+</head>
+
+<body ondragstart="window.event.returnValue=false" oncontextmenu="window.event.returnValue=false"
+	onselectstart="event.returnValue=false">
+	<audio id="music" src="./bgm.mp3" autoplay controls hidden loop="true"></audio>
+	<div id="hovertreecontainer">
+
+		<div>
+			<h1 id="h1"> 一直在寻找 </h1>
+			<!--
+	
+--> <br />
+			<br />
+			<h2 id="h2"> 问遍每一座灯塔,辨认每一个背影</h2>
+
+			<br />
+			<br />
+
+			<p style="color:white;font-size:20px">遗憾才是人生的常态...</p>
+
+			<p>&nbsp;</p>
+			<p>&nbsp;</p>
+			<p>&nbsp;</p>
+			<p>&nbsp;</p>
+		</div>
+
+	</div>
+
+	<canvas id="canvas">你的浏览器不支持canvas</canvas>
+	<audio autoplay="autoplay">
+
+		<br />
+	</audio>
+	<script type="text/javascript" src="./cont.js">
+	</script>
+	<script type="text/javascript">
+		;
+		(function (window) {
+
+			var ctx,
+				hue,
+				logo,
+				form,
+				buffer,
+				target = {},
+				tendrils = [],
+				settings = {};
+
+			settings.debug = true;
+			settings.friction = 0.5;
+			settings.trails = 20;
+			settings.size = 50;
+			settings.dampening = 0.25;
+			settings.tension = 0.98;
+
+			Math.TWO_PI = Math.PI * 2;
+
+			function Oscillator(options) {
+				this.init(options || {});
+			}
+
+			Oscillator.prototype = (function () {
+
+				var value = 0;
+
+				return {
+
+					init: function (options) {
+						this.phase = options.phase || 0;
+						this.offset = options.offset || 0;
+						this.frequency = options.frequency || 0.001;
+						this.amplitude = options.amplitude || 1;
+					},
+
+					update: function () {
+						this.phase += this.frequency;
+						value = this.offset + Math.sin(this.phase) * this.amplitude;
+						return value;
+					},
+
+					value: function () {
+						return value;
+					}
+				};
+
+			})();
+
+			function Tendril(options) {
+				this.init(options || {});
+			}
+
+			Tendril.prototype = (function () {
+
+				function Node() {
+					this.x = 0;
+					this.y = 0;
+					this.vy = 0;
+					this.vx = 0;
+				}
+
+				return {
+
+					init: function (options) {
+
+						this.spring = options.spring + (Math.random() * 0.1) - 0.05;
+						this.friction = settings.friction + (Math.random() * 0.01) - 0.005;
+						this.nodes = [];
+
+						for (var i = 0, node; i < settings.size; i++) {
+
+							node = new Node();
+							node.x = target.x;
+							node.y = target.y;
+
+							this.nodes.push(node);
+						}
+					},
+
+					update: function () {
+
+						var spring = this.spring,
+							node = this.nodes[0];
+
+						node.vx += (target.x - node.x) * spring;
+						node.vy += (target.y - node.y) * spring;
+
+						for (var prev, i = 0, n = this.nodes.length; i < n; i++) {
+
+							node = this.nodes[i];
+
+							if (i > 0) {
+
+								prev = this.nodes[i - 1];
+
+								node.vx += (prev.x - node.x) * spring;
+								node.vy += (prev.y - node.y) * spring;
+								node.vx += prev.vx * settings.dampening;
+								node.vy += prev.vy * settings.dampening;
+							}
+
+							node.vx *= this.friction;
+							node.vy *= this.friction;
+							node.x += node.vx;
+							node.y += node.vy;
+
+							spring *= settings.tension;
+						}
+					},
+
+					draw: function () {
+
+						var x = this.nodes[0].x,
+							y = this.nodes[0].y,
+							a, b;
+
+						ctx.beginPath();
+						ctx.moveTo(x, y);
+
+						for (var i = 1, n = this.nodes.length - 2; i < n; i++) {
+
+							a = this.nodes[i];
+							b = this.nodes[i + 1];
+							x = (a.x + b.x) * 0.5;
+							y = (a.y + b.y) * 0.5;
+
+							ctx.quadraticCurveTo(a.x, a.y, x, y);
+						}
+
+						a = this.nodes[i];
+						b = this.nodes[i + 1];
+
+						ctx.quadraticCurveTo(a.x, a.y, b.x, b.y);
+						ctx.stroke();
+						ctx.closePath();
+					}
+				};
+
+			})();
+
+
+			function init(event) {
+
+				document.removeEventListener('mousemove', init);
+				document.removeEventListener('touchstart', init);
+
+				document.addEventListener('mousemove', mousemove);
+				document.addEventListener('touchmove', mousemove);
+				document.addEventListener('touchstart', touchstart);
+
+				mousemove(event);
+				reset();
+				loop();
+			}
+
+			function reset() {
+
+				tendrils = [];
+
+				for (var i = 0; i < settings.trails; i++) {
+
+					tendrils.push(new Tendril({
+						spring: 0.45 + 0.025 * (i / settings.trails)
+					}));
+				}
+			}
+
+			function loop() {
+
+				if (!ctx.running) return;
+
+				ctx.globalCompositeOperation = 'source-over';
+				ctx.fillStyle = 'rgba(8,5,16,0.4)';
+				ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+				ctx.globalCompositeOperation = 'lighter';
+				ctx.strokeStyle = 'hsla(' + Math.round(hue.update()) + ',90%,50%,0.25)';
+				ctx.lineWidth = 1;
+
+				if (ctx.frame % 60 == 0) {
+					console.log(hue.update(), Math.round(hue.update()), hue.phase, hue.offset, hue.frequency, hue
+						.amplitude);
+				}
+
+				for (var i = 0, tendril; i < settings.trails; i++) {
+					tendril = tendrils[i];
+					tendril.update();
+					tendril.draw();
+				}
+
+				ctx.frame++;
+				ctx.stats.update();
+				requestAnimFrame(loop);
+			}
+
+			function resize() {
+				ctx.canvas.width = window.innerWidth;
+				ctx.canvas.height = window.innerHeight;
+			}
+
+			function start() {
+				if (!ctx.running) {
+					ctx.running = true;
+					loop();
+				}
+			}
+
+			function stop() {
+				ctx.running = false;
+			}
+
+			function mousemove(event) {
+				if (event.touches) {
+					target.x = event.touches[0].pageX;
+					target.y = event.touches[0].pageY;
+				} else {
+					target.x = event.clientX
+					target.y = event.clientY;
+				}
+				event.preventDefault();
+			}
+
+			function touchstart(event) {
+				if (event.touches.length == 1) {
+					target.x = event.touches[0].pageX;
+					target.y = event.touches[0].pageY;
+				}
+			}
+
+			function keyup(event) {
+
+				switch (event.keyCode) {
+					case 32:
+						save();
+						break;
+					default:
+
+				}
+			}
+
+			function letters(id) {
+
+				var el = document.getElementById(id),
+					letters = el.innerHTML.replace('&amp;', '&').split(''),
+					heading = '';
+
+				for (var i = 0, n = letters.length, letter; i < n; i++) {
+					letter = letters[i].replace('&', '&amp');
+					heading += letter.trim() ? '<span class="letter-' + i + '">' + letter + '</span>' : '&nbsp;';
+				}
+
+				el.innerHTML = heading;
+				setTimeout(function () {
+					el.className = 'transition-in';
+				}, (Math.random() * 500) + 500);
+			}
+
+			function save() {
+
+				if (!buffer) {
+
+					buffer = document.createElement('canvas');
+					buffer.width = screen.availWidth;
+					buffer.height = screen.availHeight;
+					buffer.ctx = buffer.getContext('2d');
+
+					form = document.createElement('form');
+					form.method = 'post';
+					form.input = document.createElement('input');
+					form.input.type = 'hidden';
+					form.input.name = 'data';
+					form.appendChild(form.input);
+
+					document.body.appendChild(form);
+				}
+
+				buffer.ctx.fillStyle = 'rgba(8,5,16)';
+				buffer.ctx.fillRect(0, 0, buffer.width, buffer.height);
+
+				buffer.ctx.drawImage(canvas,
+					Math.round(buffer.width / 2 - canvas.width / 2),
+					Math.round(buffer.height / 2 - canvas.height / 2)
+				);
+
+				buffer.ctx.drawImage(logo,
+					Math.round(buffer.width / 2 - logo.width / 4),
+					Math.round(buffer.height / 2 - logo.height / 4),
+					logo.width / 2,
+					logo.height / 2
+				);
+
+				window.open(buffer.toDataURL(), 'wallpaper', 'top=0,left=0,width=' + buffer.width + ',height=' + buffer
+					.height);
+
+			}
+
+			window.requestAnimFrame = (function () {
+				return window.requestAnimationFrame || window.webkitRequestAnimationFrame || window
+					.mozRequestAnimationFrame || function (fn) {
+						window.setTimeout(fn, 1000 / 60)
+					};
+			})();
+
+			window.onload = function () {
+
+				ctx = document.getElementById('canvas').getContext('2d');
+				ctx.stats = new Stats();
+				ctx.running = true;
+				ctx.frame = 1;
+
+				logo = new Image();
+				logo.src = 'ht' + 'tp://ho' + 'vertree.c' + 'om/themes/hvtimages/hvtlogo.p' + 'ng';
+
+				hue = new Oscillator({
+					phase: Math.random() * Math.TWO_PI,
+					amplitude: 85,
+					frequency: 0.0015,
+					offset: 285
+				});
+
+				letters('h1');
+				letters('h2');
+
+				document.addEventListener('mousemove', init);
+				document.addEventListener('touchstart', init);
+				document.body.addEventListener('orientationchange', resize);
+				window.addEventListener('resize', resize);
+				window.addEventListener('keyup', keyup);
+				window.addEventListener('focus', start);
+				window.addEventListener('blur', stop);
+
+				resize();
+
+				if (window.DEBUG) {
+
+					var gui = new dat.GUI();
+
+					settings.gui.add(settings, 'trails', 1, 30).onChange(reset);
+					settings.gui.add(settings, 'size', 25, 75).onFinishChange(reset);
+					settings.gui.add(settings, 'friction', 0.45, 0.55).onFinishChange(reset);
+					settings.gui.add(settings, 'dampening', 0.01, 0.4).onFinishChange(reset);
+					settings.gui.add(settings, 'tension', 0.95, 0.999).onFinishChange(reset);
+
+					document.body.appendChild(ctx.stats.domElement);
+				}
+			};
+
+		})(window);
+	</script>
+	<script>
+		var can = document.getElementById("canvas");
+		//设置绘图环境
+		var cxt = can.getContext("2d");
+		//获取浏览器窗口的宽高
+		var w = can.width = window.innerWidth;
+		var h = can.height = window.innerHeight;
+		//让画布的宽高跟随浏览器窗口的变化而变化
+		window.onresize = function () {
+			w = can.width = window.innerWidth;
+			h = can.height = window.innerHeight;
+		};
+		//设置画笔颜色
+		cxt.fillStyle = "aqua";
+		//绘制矩形
+		//cxt.fillRect(50,50,100,100);//绘制的坐标点：x y 宽 w 高 h
+		//cxt.fill();填充方法(实心) cxt.stroke（）；触笔方法(空心)
+		//cxt.rect(x,y,w,h); 规定矩形的路径
+		//绘制圆 圆心坐标
+		//cxt.arc(250,250,50,0,Math.PI*2,false);//圆心坐标：x y 半径 r
+		// 从0度角绘制到360度(弧度值：Math.PI*角度/180)  逆时针
+		//cxt.fill();
+		//var x = 100,y = 0;
+		//        setInterval(function(){
+		//            y++;
+		//            cxt.clearRect(0,0,w,h);//清除画布内容
+		//            cxt.fillRect(x,y,2,35)
+		//        },1000/60);
+		/*     function move(){
+				y++;
+				cxt.clearRect(0,0,w,h);
+				cxt.fillRect(x,y,2,35);
+				requestAnimationFrame(move);//原生js的经动画
+		}
+		move();*/
+
+		//面向对象
+		var drops = [];
+		// 创建雨滴对象
+		function Drop() { }
+		//添加对象方法
+		Drop.prototype = {
+			init: function () { //初始化方法 设置每个雨滴的初始化属性
+				//设置坐标
+				this.x = random(0, w);
+				this.y = 0;
+				//y方向的速度值
+				this.vy = random(4, 5);
+				//雨滴下落的最大高度
+				this.l = random(0.8 * h, 0.9 * h);
+				//波纹的初始半径
+				this.r = 1;
+				this.vr = 1; //半径增大的速度
+				//判断雨滴消失的透明度
+				this.a = 1; // =>0
+				this.va = 0.96; //透明度的变化系数
+			},
+			draw: function () { //绘制图形
+				if (this.y > this.l) { //雨滴下落到了指定位置 开始绘制圆形
+					cxt.beginPath(); //先开始路径
+					cxt.arc(this.x, this.y, this.r, 0, Math.PI * 2, false);
+					cxt.strokeStyle = "rgba(0,255,255," + this.a + ")";
+					cxt.stroke();
+				} else { //绘制下落的雨滴
+					cxt.fillStyle = "rgb(0,255,255)";
+					cxt.fillRect(this.x, this.y, 2, 10);
+				}
+
+				this.update();
+			},
+			update: function () { //更新坐标位置
+				if (this.y < this.l) {
+					this.y += this.vy
+				} else { //雨滴下落到了指定位置 开始绘制波纹
+					if (this.a > 0.03) {
+						this.r += this.vr;
+						if (this.r > 50) {
+							this.a *= this.va;
+						}
+					} else {
+						//重新初始化
+						this.init()
+					}
+
+				}
+			}
+		};
+		//新建一个雨滴实例化对象
+		//var drop = new Drop();
+		//drop.init();// 初始化
+		//drop.draw();//绘制
+		for (var i = 0; i < 30; i++) {
+			setTimeout(function () {
+				var drop = new Drop();
+				drop.init();
+				drops.push(drop);
+			}, i * 300)
+
+		}
+		//console.log(drops)
+		function move() {
+			//cxt.clearRect(0,0,w,h);
+			//先复制透明层再绘制雨滴 雨滴就把先绘制的透明层覆盖 下一次绘制透明层
+			//就会把之前绘制的雨滴覆盖 若干的透明层叠加就会越来越不透明
+			cxt.fillStyle = "rgba(0,0,0,0.1)";
+			cxt.fillRect(0, 0, w, h);
+			for (var k = 0; k < drops.length; k++) {
+				drops[k].draw();
+			}
+			requestAnimationFrame(move);
+		}
+		move();
+		//生成随机数的方法
+		function random(min, max) {
+			return Math.random() * (max - min) + min; //min - max之间的随机数
+		}
+	</script>
+	<script>
+		let audio = document.querySelector('audio');
+		audio.addEventListener("canplaythrough", function () {
+			document.addEventListener('click', function () {
+				audio.play();
+				document.removeEventListener('click ', arguments.callee)
+			});
+			document.addEventListener('mousewheel', function () {
+				audio.play();
+				document.removeEventListener('mousewheel', arguments.callee)
+			});
+			document.addEventListener('touchstart', function () {
+				//增加一个touchstart交互事件，触屏后播放音乐
+				audio.play()
+				//播放音频后移除touchstart事件的当前匿名函数
+				document.removeEventListener('touchstart ', arguments.callee)
+			});
+		})
+	</script>
+
+</body>
+
+</html>
